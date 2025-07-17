@@ -1,0 +1,47 @@
+# =====================
+# Python / Flask 開発用
+# =====================
+
+# 仮想環境
+venv/
+ENV/
+env/
+
+# Pythonキャッシュとバイナリ
+__pycache__/
+*.py[cod]
+*.so
+
+# エディタ・IDE関連
+.vscode/
+.idea/
+
+# OS依存ファイル
+.DS_Store
+Thumbs.db
+
+# ログファイルや一時ファイル
+*.log
+*.tmp
+
+# 環境変数（APIキーや秘密情報など）
+.env
+
+# Jupyter関係（使う場合）
+.ipynb_checkpoints/
+
+# パッケージ配布用のビルドファイル
+build/
+dist/
+*.egg-info/
+
+# SQLiteなどローカルDB（任意）
+*.sqlite3
+*.db
+
+# 作成されたCSVなどデータ一時保存用
+data/*.csv
+data/*.xlsx
+
+# PyInstallerによるバイナリ生成物（もし作る場合）
+*.spec
