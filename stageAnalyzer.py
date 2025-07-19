@@ -1,35 +1,14 @@
-import ta
-import pandas as pd
-
+# stageAnalyzer.py
 class StageAnalyzer:
-    def __init__(self, short_ema_name='EMA_5', mid_ema_name='EMA_20', long_ema_name='EMA_40'):
-        self.short = short_ema_name
-        self.mid = mid_ema_name
-        self.long = long_ema_name
+    def __init__(self, short_ema_col='EMA_5', mid_ema_col='EMA_20', long_ema_col='EMA_40'):
+        self.short = short_ema_col
+        self.mid = mid_ema_col
+        self.long = long_ema_col
 
-    def add_ema_columns(self, df):
-        """
-        データにEMA列（5, 20, 40）を追加する
-        """
-        # 念のため Close 列を 1次元の Series にしておく
-        close_series = df['Close']
-        if isinstance(close_series, pd.DataFrame):
-            close_series = close_series.iloc[:, 0]
-
-        short_ema = ta.trend.EMAIndicator(close=close_series, window=5).ema_indicator()
-        mid_ema   = ta.trend.EMAIndicator(close=close_series, window=20).ema_indicator()
-        long_ema  = ta.trend.EMAIndicator(close=close_series, window=40).ema_indicator()
-
-        df[self.short] = short_ema
-        df[self.mid] = mid_ema
-        df[self.long] = long_ema
-        return df
-
-
-    def determine_stage(self, latest_row):
-        short = latest_row[self.short].item()
-        mid = latest_row[self.mid].item()
-        long = latest_row[self.long].item()
+    def determine_stage(self, row):
+        short = row[self.short].iloc[-1]
+        mid = row[self.mid].iloc[-1]
+        long = row[self.long].iloc[-1]
 
         if short > mid > long:
             return "ステージ1"
@@ -44,5 +23,36 @@ class StageAnalyzer:
         elif short > long > mid:
             return "ステージ6"
         else:
-            return "不明"
+            return "判定不能"
 
+    def analyze_all(self, ema_data_dict):
+        """
+        ema_data_dict: dict[str, pd.DataFrame]
+            - key: 銘柄コード
+            - value: EMA計算済みのDataFrame
+        """
+        result = {}
+        for ticker, df in ema_data_dict.items():
+            if df.empty or len(df) < 1:
+                result[ticker] = "データ不足"
+                continue
+            latest_row = df.iloc[-1]
+            result[ticker] = self.determine_stage(latest_row)
+        return result
+
+# ここから下がテスト（直接実行用）コード
+if __name__ == "__main__":
+    import pandas as pd
+
+    # 仮のデータを作成
+    data = {
+        'EMA_5':  [105],
+        'EMA_25': [100],
+        'EMA_40': [95],
+    }
+    df = pd.DataFrame(data)
+
+    # テスト実行
+    analyzer = StageAnalyzer()
+    stage = analyzer.determine_stage(df)
+    print("判定されたステージ:", stage)

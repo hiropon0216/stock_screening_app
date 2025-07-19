@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>移動平均線大循環分析スクリーニング</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        form { margin-bottom: 20px; }
+        .checkbox-group label { margin-right: 10px; }
+        table, th, td {
+            border: 1px solid #aaa;
+            border-collapse: collapse;
+            padding: 8px;
+        }
+        th { background-color: #eee; }
+        .chart-link { color: blue; text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>ステージ別スクリーニング</h1>
+
+    <form method="POST">
+        <div class="checkbox-group">
+            {% for stage in range(1, 7) %}
+                <label>
+                    <input type="checkbox" name="stage" value="{{ stage }}">
+                    ステージ{{ stage }}
+                </label>
+            {% endfor %}
+        </div>
+        <br>
+        <button type="submit">検索</button>
+    </form>
+
+    {% if results %}
+        <h2>検索結果</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>銘柄コード</th>
+                    <th>銘柄名</th>
+                    <th>ステージ</th>
+                    <th>チャート</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in results %}
+                    <tr>
+                        <td>{{ row['code'] }}</td>
+                        <td>{{ row['name'] }}</td>
+                        <td>{{ row['stage'] }}</td>
+                        <td><a href="{{ row['chart_link'] }}" target="_blank" class="chart-link">表示</a></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+</body>
+</html>
