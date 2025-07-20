@@ -43,12 +43,12 @@
             </tr>
             {% for result in results %}
                 <tr>
-                    <td>{{ result['code'] }}</td>
-                    <td>{{ result['name'] }}</td>
-                    <td class="stage-{{ result['stage'] }}">
-                        ステージ{{ result['stage'] }}
+                    <td>{{ result['銘柄コード'] }}</td>
+                    <td>{{ result['銘柄名'] }}</td>
+                    <td class="stage-{{ result['現在のステージ'] }}">
+                        ステージ{{ result['現在のステージ'] }}
                     </td>
-                    <td><a href="https://finance.yahoo.co.jp/quote/{{ result['code'] }}" target="_blank">チャート</a></td>
+                    <td><a href="https://finance.yahoo.co.jp/quote/{{ result['銘柄コード'] }}" target="_blank">チャート</a></td>
                 </tr>
             {% endfor %}
         </table>
