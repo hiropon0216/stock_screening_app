@@ -1,14 +1,6 @@
-name: Daily Batch Screening
-
-on:
-  schedule:
-    - cron: '0 7 * * *'  # 毎日7時UTC（日本時間16時）
-  workflow_dispatch:      # 手動実行も可能にする
-
 jobs:
   run-batch:
     runs-on: ubuntu-latest
-
     steps:
       - name: リポジトリをチェックアウト
         uses: actions/checkout@v3
@@ -16,13 +8,16 @@ jobs:
       - name: Python をセットアップ
         uses: actions/setup-python@v4
         with:
-          python-version: '3.13'  # 必要に応じて変更してください
+          python-version: '3.10'
 
       - name: 依存関係をインストール
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: バッチスクリプトを実行
+      - name: ファイル一覧を確認してからスクリプト実行
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: |
+          ls -la
           python BatchScreening.py
