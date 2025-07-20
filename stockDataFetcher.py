@@ -45,41 +45,6 @@ class StockDataFetcher:
 
         return df
 
-    def screen_by_stage(self, tickers, selected_stages, volume_min=None, volume_max=None):
-        """
-        指定されたステージと出来高条件に基づき、スクリーニングを実行
-
-        Parameters:
-            tickers (list): 銘柄コードのリスト（例: ['1301.T', '1305.T']）
-            selected_stages (list): 判定対象のステージ番号リスト（例: ['1', '2']）
-            volume_min (int|None): 出来高の下限
-            volume_max (int|None): 出来高の上限
-
-        Returns:
-            list[dict]: 条件に合致した銘柄情報の辞書リスト
-        """
-        results = []
-        analyzer = StageAnalyzer()
-
-        for ticker in tickers:
-            df = self.fetch(ticker)
-            df = self.filter_by_volume(df, volume_min, volume_max)
-            if df is None:
-                continue
-
-            stage_label = analyzer.determine_stage(df)
-            stage_number = self._convert_stage_label_to_number(stage_label)
-
-            if stage_number in selected_stages:
-                results.append({
-                    "ticker": ticker,
-                    "stage": stage_number,
-                    "stage_label": stage_label,
-                    "volume": int(df['Volume'].iloc[-1])
-                })
-
-        return results
-
     def _convert_stage_label_to_number(self, label):
         """
         ステージの日本語ラベルを番号に変換（例: 'ステージ1' → '1'）

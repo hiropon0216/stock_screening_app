@@ -30,14 +30,6 @@
             </label><br>
         {% endfor %}
 
-                <h3>出来高</h3>
-        
-        <input type="number" name="min_volume" min="0" step="1" value="{{ min_volume }}" placeholder="下限" style="width:100px;">
-        ～
-        <input type="number" name="max_volume" min="0" step="1" value="{{ max_volume }}" placeholder="上限" style="width:100px;">
-        株
-        <br>
-
         <h3>ステージ</h3>
         {% for i in range(1, 7) %}
             <label class="stage-label stage-{{ i }}">
@@ -50,7 +42,11 @@
             </label><br>
         {% endfor %}
 
-
+        <h3>価格・出来高フィルター</h3>
+        <label>終値（下限）: <input type="number" name="price_min" step="0.01" value="{{ price_min or '' }}"></label>
+        <label>終値（上限）: <input type="number" name="price_max" step="0.01" value="{{ price_max or '' }}"></label><br>
+        <label>出来高（下限）: <input type="number" name="volume_min" value="{{ volume_min or '' }}"></label>
+        <label>出来高（上限）: <input type="number" name="volume_max" value="{{ volume_max or '' }}"></label><br>
 
         <button type="submit">検索</button>
     </form>
@@ -62,6 +58,8 @@
                 <th>市場・商品区分</th>
                 <th>銘柄コード</th>
                 <th>銘柄名</th>
+                <th>最新出来高</th>        
+                <th>最新終値</th> 
                 <th>現在のステージ</th>
                 <th>チャートリンク</th>
             </tr>
@@ -70,6 +68,8 @@
                     <td>{{ result['市場・商品区分'] }}</td>
                     <td>{{ result['銘柄コード'] }}</td>
                     <td>{{ result['銘柄名'] }}</td>
+                    <td>{{ result['最新出来高'] }}</td>
+                    <td>{{ result['最新終値'] }}</td>
                     <td class="stage-{{ result['現在のステージ'] }}">
                         ステージ{{ result['現在のステージ'] }}
                     </td>

@@ -1,9 +1,22 @@
 import os
 import pandas as pd
+import yfinance as yf
 from datetime import datetime
 from TickersLoader import TickersLoader
 from StockDataFetcher import StockDataFetcher
 from StageAnalyzer import StageAnalyzer
+
+def fetch_latest_price_volume(ticker):
+    try:
+        df = yf.Ticker(ticker).history(period='1d')
+        if df.empty:
+            return None, None
+        latest_close = df['Close'].iloc[-1]
+        latest_volume = df['Volume'].iloc[-1]
+        return float(latest_close), int(latest_volume)
+    except Exception as e:
+        print(f"最新株価・出来高取得エラー: {ticker}: {e}")
+        return None, None
 
 def run_batch():
     selected_stages = [1, 2, 3, 4, 5, 6]
@@ -30,22 +43,26 @@ def run_batch():
                 print(f"データ取得失敗: {ticker}")
                 continue
 
-            # 最新行だけ渡して判定（StageAnalyzerの determine_stage に合わせる）
+            # 最新行だけ渡して判定
             latest_row = df.iloc[-1]
-            stage_str = stage_analyzer.determine_stage(latest_row)  # "ステージ1"などの文字列
+            stage_str = stage_analyzer.determine_stage(latest_row)
 
-            # ステージ番号だけ抽出
+            
+
             if stage_str.startswith("ステージ"):
                 stage_num = int(stage_str.replace("ステージ", ""))
             else:
                 continue  # 判定不能ならスキップ
 
             if stage_num in selected_stages:
+                latest_close, latest_volume = fetch_latest_price_volume(ticker)
                 results.append({
-                    '市場・商品区分':market,
+                    '市場・商品区分': market,
                     '銘柄コード': ticker,
                     '銘柄名': name,
-                    '現在のステージ': stage_num
+                    '現在のステージ': stage_num,
+                    '最新終値': latest_close,
+                    '最新出来高': latest_volume
                 })
 
         except Exception as e:
