@@ -21,7 +21,8 @@ def run_batch():
     for item in tickers:
         ticker = item['symbol']
         name = item['銘柄名']
-        print(f"処理中: {ticker} - {name}")
+        market = item.get('市場・商品区分', '')
+        print(f"処理中: {ticker} - {name} - {market}")
 
         try:
             df = fetcher.fetch(ticker)
@@ -41,6 +42,7 @@ def run_batch():
 
             if stage_num in selected_stages:
                 results.append({
+                    '市場・商品区分':market,
                     '銘柄コード': ticker,
                     '銘柄名': name,
                     '現在のステージ': stage_num

@@ -2,23 +2,43 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>移動平均線大循環分析</title>
+    <title>銘柄スクリーニング</title>
     <style>
         .stage-label {
             font-weight: bold;
             margin-right: 10px;
         }
-        .stage-1 { color: #FF0000; }  /* 赤：濃い */
-        .stage-2 { color: #FF6666; }  /* 赤：中間 */
-        .stage-3 { color: #FF9999; }  /* 赤：薄い */
-        .stage-4 { color: #0000FF; }  /* 青：濃い */
-        .stage-5 { color: #6666FF; }  /* 青：中間 */
-        .stage-6 { color: #9999FF; }  /* 青：薄い */
+        .stage-1 { color: #FF0000; }
+        .stage-2 { color: #FF6666; }
+        .stage-3 { color: #FF9999; }
+        .stage-4 { color: #0000FF; }
+        .stage-5 { color: #6666FF; }
+        .stage-6 { color: #9999FF; }
     </style>
 </head>
 <body>
-    <h1>移動平均線大循環分析</h1>
+    <h1>銘柄スクリーニング</h1>
+
     <form method="post">
+        <h3>市場</h3>
+        {% set market_options = ['プライム（内国株式）', 'スタンダード（内国株式）', 'グロース（内国株式）'] %}
+        {% for market in market_options %}
+            <label>
+                <input type="checkbox" name="markets" value="{{ market }}"
+                       {% if market in selected_markets %}checked{% endif %}>
+                {{ market }}
+            </label><br>
+        {% endfor %}
+
+                <h3>出来高</h3>
+        
+        <input type="number" name="min_volume" min="0" step="1" value="{{ min_volume }}" placeholder="下限" style="width:100px;">
+        ～
+        <input type="number" name="max_volume" min="0" step="1" value="{{ max_volume }}" placeholder="上限" style="width:100px;">
+        株
+        <br>
+
+        <h3>ステージ</h3>
         {% for i in range(1, 7) %}
             <label class="stage-label stage-{{ i }}">
                 <input type="checkbox" name="stages" value="{{ i }}"
@@ -29,6 +49,9 @@
                 ）
             </label><br>
         {% endfor %}
+
+
+
         <button type="submit">検索</button>
     </form>
 
@@ -36,6 +59,7 @@
         <h2>検索結果</h2>
         <table border="1">
             <tr>
+                <th>市場・商品区分</th>
                 <th>銘柄コード</th>
                 <th>銘柄名</th>
                 <th>現在のステージ</th>
@@ -43,12 +67,16 @@
             </tr>
             {% for result in results %}
                 <tr>
+                    <td>{{ result['市場・商品区分'] }}</td>
                     <td>{{ result['銘柄コード'] }}</td>
                     <td>{{ result['銘柄名'] }}</td>
                     <td class="stage-{{ result['現在のステージ'] }}">
                         ステージ{{ result['現在のステージ'] }}
                     </td>
-                    <td><a href="https://finance.yahoo.co.jp/quote/{{ result['銘柄コード'] }}" target="_blank">チャート</a></td>
+                    <td>
+                        <a href="https://finance.yahoo.co.jp/quote/{{ result['銘柄コード'] }}"
+                           target="_blank">チャート</a>
+                    </td>
                 </tr>
             {% endfor %}
         </table>

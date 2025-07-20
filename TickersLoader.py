@@ -3,7 +3,6 @@ import os
 
 class TickersLoader:
     def __init__(self, csv_path=None):
-        # デフォルトで絶対パスを使用
         if csv_path is None:
             self.csv_path = r'C:\Users\k1143\stock_screening_app\data\data_j.xls'
         else:
@@ -20,7 +19,9 @@ class TickersLoader:
         # '銘柄コード'列を4桁に揃えて文字列にし、".T"を付ける
         df['symbol'] = df['コード'].astype(str).str.zfill(4) + ".T"
 
-        return df[['symbol', '銘柄名']].to_dict(orient='records')
+        # 必要な列のみ返すように修正
+        return df[['symbol', '銘柄名', '市場・商品区分']].to_dict(orient='records')
+
     
 # === ここから直接実行時のテスト用ブロック ===
 # if __name__ == "__main__":
