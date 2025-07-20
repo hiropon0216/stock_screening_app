@@ -137,10 +137,6 @@ stock_screening_app/
 └── screening_result.csv   ← 日付別キャッシュ（オプション）
  ```
 
- 結果を stage_1.json 〜 stage_6.json に分けて保存
-
- 必要に応じて日付付き保存（例：screened_2025-07-17.json）
-
 ## 🔷 ステージ 4：定期スクリーニングの自動実行（GitHub Actionsなど）
 🎯 目的：
 株価データは日々変わるため、毎日朝に自動スクリーニングを行い、最新結果を保存する。
