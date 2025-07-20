@@ -25,4 +25,4 @@ jobs:
 
       - name: バッチスクリプトを実行
         run: |
-          python stock_screening_app/BatchScreening.py
+          python BatchScreening.py
