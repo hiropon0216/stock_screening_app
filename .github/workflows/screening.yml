@@ -16,7 +16,7 @@ jobs:
       - name: Python をセットアップ
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'  # 必要に応じて変更してください
+          python-version: '3.13'  # 必要に応じて変更してください
 
       - name: 依存関係をインストール
         run: |
