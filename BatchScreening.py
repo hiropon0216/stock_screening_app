@@ -3,8 +3,8 @@ import pandas as pd
 import yfinance as yf
 from datetime import datetime
 from TickersLoader import TickersLoader
-from stockDataFetcher import StockDataFetcher
-from stageAnalyzer import StageAnalyzer
+from StockDataFetcher import StockDataFetcher
+from StageAnalyzer import StageAnalyzer
 
 def fetch_latest_price_volume(ticker):
     try:
