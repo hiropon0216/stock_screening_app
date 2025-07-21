@@ -4,7 +4,8 @@ import os
 class TickersLoader:
     def __init__(self, csv_path=None):
         if csv_path is None:
-            self.csv_path = r'C:\Users\k1143\stock_screening_app\data\data_j.xls'
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            self.csv_path = os.path.join(base_dir, 'data', 'data_j.xls')
         else:
             self.csv_path = csv_path
 
@@ -16,11 +17,9 @@ class TickersLoader:
         print("Excelファイルの読み込み成功。先頭5行：")
         print(df.head())
 
-        # '銘柄コード'列を4桁に揃えて文字列にし、".T"を付ける
         df['symbol'] = df['コード'].astype(str).str.zfill(4) + ".T"
-
-        # 必要な列のみ返すように修正
         return df[['symbol', '銘柄名', '市場・商品区分']].to_dict(orient='records')
+
 
     
 # === ここから直接実行時のテスト用ブロック ===
