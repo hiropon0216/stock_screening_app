@@ -42,3 +42,19 @@ jobs:
             git commit -m "📈 自動スクリーニング結果を追加 ($(date +'%Y-%m-%d'))"
             git push origin main
           fi
+
+      - name: Discordに通知を送信
+        if: always()  # スクリプト成功/失敗に関係なく通知
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          STATUS="${{ job.status }}"
+          MESSAGE="✅ 株スクリーニング完了！（ステータス: ${STATUS}）"
+          if [ "$STATUS" != "success" ]; then
+            MESSAGE="❌ 株スクリーニング失敗しました（ステータス: ${STATUS}）"
+          fi
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d "{\"content\": \"$MESSAGE\"}" \
+               $DISCORD_WEBHOOK_URL
+
