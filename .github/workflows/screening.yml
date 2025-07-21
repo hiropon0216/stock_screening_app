@@ -1,4 +1,4 @@
-name: 定期株スクリーニング
+name: 株スクリーニング定期実行
 
 on:
   schedule:
@@ -22,9 +22,23 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: ファイル一覧を確認してからスクリプト実行
+      - name: スクリプトを実行し、結果ファイルを出力
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
           ls -la
           python BatchScreening.py
+
+      - name: 変更がある場合のみコミット＆プッシュ
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add screening_results/*.json
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "📈 自動スクリーニング結果を追加 ($(date +'%Y-%m-%d'))"
+            git push origin main
+          fi
