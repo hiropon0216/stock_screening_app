@@ -4,7 +4,7 @@ import os
 class TickersLoader:
     def __init__(self, csv_path=None):
         if csv_path is None:
-            base_dir = os.path.dirname(os.path.abspath(__file__))
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             self.csv_path = os.path.join(base_dir, 'data', 'data_j.xls')
         else:
             self.csv_path = csv_path
