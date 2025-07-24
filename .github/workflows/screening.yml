@@ -27,10 +27,10 @@ jobs:
 
       - name: スクリプトを実行し、結果ファイルを出力
         env:
-          PYTHONPATH: ${{ github.workspace }}
+          PYTHONPATH: ${{ github.workspace }}/app
         run: |
           ls -la
-          python BatchScreening.py
+          python app/BatchScreening.py
 
       - name: 変更がある場合のみコミット＆プッシュ
         run: |
