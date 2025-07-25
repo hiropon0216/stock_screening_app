@@ -45,3 +45,6 @@ data/*.xlsx
 
 # PyInstallerによるバイナリ生成物（もし作る場合）
 *.spec
+
+# DBファイルはバージョン管理しない
+data/*.db
