@@ -363,13 +363,68 @@ Webhookを用いて、Pythonから通知を送る。
 1. investment_prerequisites：スクリーニングの前提条件を管理するDB
    * UIから前提条件を受け取り、このDBに保持しておく。スクリーニング前にこのDBを参照し、スクリーニングを行うイメージ
 ```
-カラム名     |        型　       |    説明
-id                  INTEGER          主キー
-
+カラム名             |        型　       |    説明
+id                         INTEGER           主キー
+market_segment             TEXT              市場選択（プライム市場、スタンダード市場などをカンマ区切りで保持？）※いいアイデア浮かばず
+volume_lower_limit         INTEGER           出来高の下限
+volume_upper_limit         INTEGER           出来高の上限
+budget_lower_limit         INTEGER           予算の下限
+budget_upper_limit         INTEGER           予算の上限
 ```
 
 * 分析前の銘柄を管理するDB
+2. stocks:東証上場銘柄一覧のxlsをそのまま保持する。スクリーニング対象銘柄はここから取得する。
+```
+| カラム名        | 型       | 必須  | 説明                    |
+| ----------- | ------- | --- | --------------------- |
+| id          | INTEGER | Yes | 主キー（自動インクリメント）        |
+| code        | TEXT    | Yes | 銘柄コード（例: 7203）        |
+| name        | TEXT    | Yes | 銘柄名（例: トヨタ自動車）        |
+| market      | TEXT    | Yes | 市場（例: プライム, スタンダードなど） |
+| sector      | TEXT    | No  | 業種名                   |
+| created_at | TEXT    | Yes | データ登録日（例: 2025-07-30） |
+| updated_at | TEXT    | No  | データ更新日                |
+
+```
 
 * 分析結果を管理するDB（売買通知の核）※最重要
+
+3. analysis_results:1日1回のスクリーニングの分析結果を保持するテーブル。このテーブルを参照して、購入すべき銘柄を絞り込んで通知する。
+```
+| カラム名               | 型       | 必須    | 備考・用途                                   |
+| --------------------- | ------- | ----- | --------------------------------------- |
+| id                    | INTEGER | ◯（PK） | 自動採番の主キー                                |
+| code                  | TEXT    | ◯     | 銘柄コード（例：7203.T）                         |
+| name                  | TEXT    | ✕     | 銘柄名                                     |
+| market                | TEXT    | ◯     | 市場名　例：プライム、スタンダード、グロース               |
+| date                  | TEXT    | ◯     | 分析を行った日付（YYYY-MM-DD）                    |
+| topix_stage           | INTEGER | ◯     | 地合いを見る目的でTOPIXの移動平均線大循環分析によるステージ（1〜6）                  |
+|topix_ema5             | REAL    | 〇     | TOPIXの5日EMA
+|topix_ema20            | REAL    | 〇     | TOPIXの20日EMA
+|topix_ema40            | REAL    | 〇     | TOPIXの40日EMA
+|stock_stage            | INTEGER | ◯     | 対象銘柄のステージ
+|stock_ema5             | REAL    | 〇     | 対象銘柄の5日EMA
+|stock_ema20            | REAL    | 〇     | 対象銘柄の20日EMA
+|stock_ema40            | REAL    | 〇     | 対象銘柄の40日EMA
+-- 下記より再検討
+| `rsi`                 | REAL    | ◯     | RSI値（例：68.2）                            |
+| `rsi_delta`           | REAL    | ◯     | 前日比でのRSI変化量（例：-1.5）                     |
+| `macd`                | REAL    | ◯     | MACD本体の値                                |
+| `macd_signal`         | REAL    | ◯     | MACDシグナル線の値                             |
+| `macd_histogram`      | REAL    | ◯     | MACDヒストグラム                              |
+| `atr`                 | REAL    | ◯     | 当日のATR（Average True Range）              |
+| `price_current`       | REAL    | ◯     | 現在価格（終値）                                |
+| `price_max_since_buy` | REAL    | ✕     | 買付以降の最高値（利確条件に使用）                       |
+| `bb_upper2sigma`      | REAL    | ◯     | ボリンジャーバンド +2σの値                         |
+| `volume_today`        | INTEGER | ◯     | 当日の出来高                                  |
+| `volume_yesterday`    | INTEGER | ◯     | 前日の出来高                                  |
+| `volume_avg_5d`       | REAL    | ◯     | 過去5営業日の平均出来高                            |
+| `is_candidate_buy`    | INTEGER | ◯     | 買い候補に該当するなら1、そうでなければ0                   |
+| `is_candidate_sell`   | INTEGER | ◯     | 売り候補に該当するなら1、そうでなければ0                   |
+| `note`                | TEXT    | ✕     | 補足コメントやメモ（条件該当理由などのロギング）                |
+| `created_at`          | TEXT    | ◯     | レコード作成日時（タイムスタンプ：YYYY-MM-DD HH\:MM\:SS） |
+
+```
+
 
 * 保有している銘柄を管理するDB（利確通知の核）※重要
