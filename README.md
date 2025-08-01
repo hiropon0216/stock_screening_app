@@ -276,7 +276,7 @@ Webhookを用いて、Pythonから通知を送る。
             （20以下は反発リスクがあるので避ける、50超えると勢いが戻る）
 
          * MACD
-            * MMACDライン < シグナルライン（デッドクロス状態）
+            * MACDライン < シグナルライン（デッドクロス状態）
             * MACDデッドクロス後、2〜3営業日以内（勢いが残っている）
          * ボリンジャーバンド
             * 終値が**-1σ〜-2σ**の範囲内（下抜け・弱含み）
@@ -389,16 +389,16 @@ budget_upper_limit         INTEGER           予算の上限
 
 * 分析結果を管理するDB（売買通知の核）※最重要
 
-3. analysis_results:1日1回のスクリーニングの分析結果を保持するテーブル。このテーブルを参照して、購入すべき銘柄を絞り込んで通知する。
+3. buy_sell_analysis_result:1日2回のスクリーニングの分析結果を保持するテーブル。このテーブルには売買、ロスカット、利益目標を算出するのに必要な情報を保持する。
 ```
 | カラム名               | 型       | 必須    | 備考・用途                                   |
 | --------------------- | ------- | ----- | --------------------------------------- |
-| id                    | INTEGER | ◯（PK） | 自動採番の主キー                                |
-| code                  | TEXT    | ◯     | 銘柄コード（例：7203.T）                         |
-| name                  | TEXT    | ✕     | 銘柄名                                     |
-| market                | TEXT    | ◯     | 市場名　例：プライム、スタンダード、グロース               |
-| date                  | TEXT    | ◯     | 分析を行った日付（YYYY-MM-DD）                    |
-| topix_stage           | INTEGER | ◯     | 地合いを見る目的でTOPIXの移動平均線大循環分析によるステージ（1〜6）                  |
+| id                    | INTEGER | ◯（PK） | 自動採番の主キー                                
+| code                  | TEXT    | ◯     | 銘柄コード（例：7203.T）                         
+| name                  | TEXT    | ✕     | 銘柄名                                     
+| market                | TEXT    | ◯     | 市場名　例：プライム、スタンダード、グロース               
+| date                  | TEXT    | ◯     | 分析を行った日付（YYYY-MM-DD）                    
+| topix_stage           | INTEGER | ◯     | 地合いを見る目的でTOPIXの移動平均線大循環分析によるステージ（1〜6）                  
 |topix_ema5             | REAL    | 〇     | TOPIXの5日EMA
 |topix_ema20            | REAL    | 〇     | TOPIXの20日EMA
 |topix_ema40            | REAL    | 〇     | TOPIXの40日EMA
@@ -406,25 +406,45 @@ budget_upper_limit         INTEGER           予算の上限
 |stock_ema5             | REAL    | 〇     | 対象銘柄の5日EMA
 |stock_ema20            | REAL    | 〇     | 対象銘柄の20日EMA
 |stock_ema40            | REAL    | 〇     | 対象銘柄の40日EMA
--- 下記より再検討
-| `rsi`                 | REAL    | ◯     | RSI値（例：68.2）                            |
-| `rsi_delta`           | REAL    | ◯     | 前日比でのRSI変化量（例：-1.5）                     |
-| `macd`                | REAL    | ◯     | MACD本体の値                                |
-| `macd_signal`         | REAL    | ◯     | MACDシグナル線の値                             |
-| `macd_histogram`      | REAL    | ◯     | MACDヒストグラム                              |
-| `atr`                 | REAL    | ◯     | 当日のATR（Average True Range）              |
-| `price_current`       | REAL    | ◯     | 現在価格（終値）                                |
-| `price_max_since_buy` | REAL    | ✕     | 買付以降の最高値（利確条件に使用）                       |
-| `bb_upper2sigma`      | REAL    | ◯     | ボリンジャーバンド +2σの値                         |
-| `volume_today`        | INTEGER | ◯     | 当日の出来高                                  |
-| `volume_yesterday`    | INTEGER | ◯     | 前日の出来高                                  |
-| `volume_avg_5d`       | REAL    | ◯     | 過去5営業日の平均出来高                            |
-| `is_candidate_buy`    | INTEGER | ◯     | 買い候補に該当するなら1、そうでなければ0                   |
-| `is_candidate_sell`   | INTEGER | ◯     | 売り候補に該当するなら1、そうでなければ0                   |
-| `note`                | TEXT    | ✕     | 補足コメントやメモ（条件該当理由などのロギング）                |
-| `created_at`          | TEXT    | ◯     | レコード作成日時（タイムスタンプ：YYYY-MM-DD HH\:MM\:SS） |
+|rsi                    | REAL    | ◯     | RSI値※幅は？                            
+|rsi_delta              | REAL    | ◯     | 前日比でのRSI変化量（例：-1.5）                     
+|macd                   | REAL    | ◯     | MACDラインの値（5日EMA - 20日EMA）                                
+|macd_signal            | REAL    | ◯     | MACDシグナル(9日EMA)                             
+|macd_histogram         | REAL    | ◯     | MACDヒストグラム(MACD - シグナル)                              
+|recent_golden_cross    | BOOLEAN | ◯     | 3営業日以内にMACDがシグナルを上抜けた直後である場合、True    
+|recent_dead_cross      | BOOLEAN | ◯     | 3営業日以内にMACDがシグナルを下抜けた直後である場合、True    
+|atr                    | REAL    | ◯     | 当日のATR              
+|closing_price          | REAL    | ◯     | 終値                                
+|price_max_since_buy    | REAL    | ✕     | 買付以降の最高値（利確条件に使用）                       
+|bb_plus_1sigma         | REAL    | ◯     | ボリンジャーバンドの1σの値
+|bb_plus_2sigma         | REAL    | ◯     | ボリンジャーバンドの2σの値
+|bb_minus_1sigma        | REAL    | ◯     | ボリンジャーバンドの-1σの値
+|bb_minus_2sigma        | REAL    | ◯     | ボリンジャーバンドの-2σの値                         
+|volume                 | REAL    | ◯     | 当日の出来高                                                           
+|volume_avg_5d          | REAL    | ◯        | 過去5営業日の平均出来高
+|volume_avg_20d         | REAL    | ◯       | 過去20営業日の平均出来高 
+|obv                    | REAL    | ◯       | 当日のobv
+|obv_pre_1              | REAL    | ◯       | obvの1日前の値
+|obv_pre_2              | REAL    | ◯       | obvの2日前の値
+|obv_pre_3              | REAL    | ◯       | obvの3日前の値
+|obv_ma_20              | REAL    | ◯       | obvの20日移動平均
+|latest settlement date | TEXT    | ✕         | 直近の決算日                                              
+|created_at             | TEXT   | ◯     | レコード作成日時（タイムスタンプ：YYYY-MM-DD HH\:MM\:SS） 
 
 ```
 
-
 * 保有している銘柄を管理するDB（利確通知の核）※重要
+4. holding_stocks:保有銘柄の情報、およびロスカットや利確条件を管理するDB。株式市場が動いている15分に1回更新する。
+```
+| カラム名               | 型       | 必須    | 備考・用途                                   |
+| --------------------- | ------- | ----- | --------------------------------------- |
+| id                    | INTEGER | ◯（PK） | 自動採番の主キー
+| position              | TEXT    | 〇       | 買いor売り（空売り）※UIから貰う                                
+| code                  | TEXT    | ◯       | 銘柄コード（例：7203.T）                         
+| name                  | TEXT    | ✕       | 銘柄名
+| market                | TEXT    | ◯       | 市場名　例：プライム、スタンダード、グロース  
+| loss_price            | REAL    | 〇       | ロスカット金額
+| buy_price             | REAL    | 〇       | 購入金額
+| buy_date              | TEXT    | 〇       | 約定日
+|created_at             | TEXT   | ◯     | レコード作成日時（タイムスタンプ：YYYY-MM-DD HH\:MM\:SS） 
+```
