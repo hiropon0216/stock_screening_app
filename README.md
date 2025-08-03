@@ -428,23 +428,29 @@ budget_upper_limit         INTEGER           予算の上限
 |obv_pre_2              | REAL    | ◯       | obvの2日前の値
 |obv_pre_3              | REAL    | ◯       | obvの3日前の値
 |obv_ma_20              | REAL    | ◯       | obvの20日移動平均
-|latest settlement date | TEXT    | ✕         | 直近の決算日                                              
-|created_at             | TEXT   | ◯     | レコード作成日時（タイムスタンプ：YYYY-MM-DD HH\:MM\:SS） 
+|latest settlement date | TEXT    | ✕       | 直近の決算日                                              
+|create_day             | TEXT    | ◯       | レコード作成日時（タイムスタンプ：YYYY-MM-DD HH\:MM\:SS） 
 
 ```
 
 * 保有している銘柄を管理するDB（利確通知の核）※重要
-4. holding_stocks:保有銘柄の情報、およびロスカットや利確条件を管理するDB。株式市場が動いている15分に1回更新する。
+4. holding_stocks:保有銘柄の情報、およびロスカットや利確条件を管理するDB。株式市場が動いている15分に1回更新する。利確のタイミングになり次第、通知を行う。
 ```
-| カラム名               | 型       | 必須    | 備考・用途                                   |
-| --------------------- | ------- | ----- | --------------------------------------- |
+| カラム名               | 型       | 必須    | 備考・用途                                   
+| --------------------- | ------- | ----- | ---------------------------------------
 | id                    | INTEGER | ◯（PK） | 自動採番の主キー
 | position              | TEXT    | 〇       | 買いor売り（空売り）※UIから貰う                                
 | code                  | TEXT    | ◯       | 銘柄コード（例：7203.T）                         
 | name                  | TEXT    | ✕       | 銘柄名
 | market                | TEXT    | ◯       | 市場名　例：プライム、スタンダード、グロース  
 | loss_price            | REAL    | 〇       | ロスカット金額
+| 
 | buy_price             | REAL    | 〇       | 購入金額
 | buy_date              | TEXT    | 〇       | 約定日
-|created_at             | TEXT   | ◯     | レコード作成日時（タイムスタンプ：YYYY-MM-DD HH\:MM\:SS） 
+| possession_flag       | BOOLEAN | 〇       | 現在保有中かどうかを管理するフラグ。TRUEの場合、保有中。
+| create_day            | TEXT    | ◯       | レコード作成日時（タイムスタンプ：YYYY-MM-DD HH\:MM\:SS） 
+```
+
+### クラス設計
+```
 ```
