@@ -30,7 +30,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/app
         run: |
           ls -la
-          python app/screening_result.csv
+          python app/BatchScreening.py
 
       - name: 変更がある場合のみコミット＆プッシュ
         run: |
