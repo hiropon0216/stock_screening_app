@@ -6,7 +6,7 @@ import glob
 app = Flask(__name__)
 
 def get_latest_csv():
-    files = glob.glob("output/screening_result.csv")
+    files = glob.glob("app/output/screening_result.csv")
     if not files:
         print("CSVファイルが見つかりません。")
         return None
