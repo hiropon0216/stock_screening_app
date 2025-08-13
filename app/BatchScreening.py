@@ -89,7 +89,7 @@ def run_batch():
     result_df = pd.DataFrame(results)
 
     # outputフォルダ作成
-    output_dir = 'output'
+    output_dir = 'app/output'
     os.makedirs(output_dir, exist_ok=True)
 
     filename = f'{output_dir}/screening_result.csv'
