@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>保有銘柄管理</title>
+</head>
+<body>
+<h2>保有銘柄登録</h2>
+<form id="stockForm">
+    <label>ポジション:</label>
+    <input type="radio" name="position" value="買い" required>買い
+    <input type="radio" name="position" value="売り" required>売り（空売り）
+    <br>
+
+    <label>銘柄コード:</label>
+    <input type="text" name="code" placeholder="例: 7203" required>
+    <br>
+
+    <label>購入金額:</label>
+    <input type="number" step="0.01" name="buy_price" required>
+    <br>
+
+    <label>ロスカット金額:</label>
+    <input type="number" step="0.01" name="loss_price" required>
+    <br>
+
+    <label>約定日:</label>
+    <input type="date" name="buy_date" required>
+    <br><br>
+
+    <button type="submit">登録</button>
+</form>
+
+<div id="errorMessage" style="color:red;"></div>
+
+<h2>保有中銘柄一覧</h2>
+<table border="1">
+    <tr>
+        <th>ポジション</th>
+        <th>銘柄コード</th>
+        <th>銘柄名</th>
+        <th>市場</th>
+        <th>購入金額</th>
+        <th>ロスカット金額</th>
+        <th>約定日</th>
+        <th>削除ボタン</th>
+    </tr>
+    {% for stock in stocks %}
+    <tr id="row-{{ stock['id'] }}">
+        <td>{{ stock["position"] }}</td>
+        <td>{{ stock["code"] }}</td>
+        <td>{{ stock["name"] }}</td>
+        <td>{{ stock["market"] }}</td>
+        <td>{{ stock["buy_price"] }}</td>
+        <td>{{ stock["loss_price"] }}</td>
+        <td>{{ stock["buy_date"] }}</td>
+        <td>
+            <button onclick="deleteStock({{ stock['id'] }})">削除</button>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+
+<script>
+// 新規登録処理
+document.getElementById("stockForm").addEventListener("submit", async function(e){
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+
+    const res = await fetch("/add_stock", {
+        method: "POST",
+        body: formData
+    });
+    const result = await res.json();
+
+    const msgDiv = document.getElementById("errorMessage");
+    if(result.status === "ok"){
+        msgDiv.textContent = "";   
+        location.reload();  // 成功したら一覧更新
+    } else {
+        msgDiv.textContent = result.message;  // エラー表示
+    }
+});
+
+// 削除処理
+async function deleteStock(stockId) {
+    if(!confirm("本当に削除しますか？")) return;
+
+    const res = await fetch(`/delete_stock/${stockId}`, {
+        method: "POST"
+    });
+    const result = await res.json();
+
+    if(result.status === "ok") {
+        const row = document.getElementById(`row-${stockId}`);
+        if(row) row.remove();
+    } else {
+        alert("削除エラー: " + result.message);
+    }
+}
+</script>
+</body>
+</html>

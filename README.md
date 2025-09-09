@@ -384,7 +384,6 @@ budget_upper_limit         INTEGER           予算の上限
 | name                  | TEXT    | ✕       | 銘柄名
 | market                | TEXT    | ◯       | 市場名　例：プライム、スタンダード、グロース  
 | loss_price            | REAL    | 〇       | 現時点の想定ロスカット金額
-| 
 | buy_price             | REAL    | 〇       | 購入金額
 | buy_date              | TEXT    | 〇       | 約定日
 | possession_flag       | BOOLEAN | 〇       | 現在保有中かどうかを管理するフラグ。TRUEの場合、保有中。
@@ -397,8 +396,13 @@ budget_upper_limit         INTEGER           予算の上限
 1. DB（holding_stocks）作成
    
    * DBを作成し、クライアントツールで触れるまでがゴール
+   * db/に作成
 
-2. LossCutUpd.py作成（新たに設定すべきロスカット金額の計算を行うクラス）
+2. UI作成
+   * 目的
+      * 保有している銘柄の作成と破棄
+
+3. LossCutUpd.py作成（新たに設定すべきロスカット金額の計算を行うクラス）
    
    * 保有している銘柄（possession_flagがTRUE）のレコードを対象に、新しいロスカット金額を通知する。
    * Github ACtionsのジョブフローを1日1回、市場終了（15時半）以降に自動実行する。
@@ -411,7 +415,7 @@ budget_upper_limit         INTEGER           予算の上限
    ・売りの場合は上回らないこと
    ```
 
-3. LockInProfits.py(利益確定のタイミングになっていないかを計算するクラス)
+4. LockInProfits.py(利益確定のタイミングになっていないかを計算するクラス)
 
 
 * 買うべき（空売りすべき）銘柄の分析および通知機能
