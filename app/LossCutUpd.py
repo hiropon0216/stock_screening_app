@@ -1,97 +1,112 @@
 import sqlite3
 import yfinance as yf
 import pandas as pd
+import math
 import os
+import requests
 
-class LossCutUpdater:
-    def __init__(self):
-        # DBパスの設定
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        db_path = os.path.join(base_dir, '..', 'db', 'stock.db')
-        self.conn = sqlite3.connect(db_path)
-        self.cursor = self.conn.cursor()
+DB_PATH = os.path.join(os.path.dirname(__file__), "../db/holding_stocks.db")
+DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK")
 
-    def fetch_holding_stocks(self):
-        # 保有銘柄の情報を取得（保有中のみ）
-        self.cursor.execute('''
-            SELECT id, code, position
-            FROM holding_stocks
-            WHERE possession_flag = 1
-        ''')
-        return self.cursor.fetchall()
+def notify_discord(message: str):
+    """Discordに通知"""
+    if not DISCORD_WEBHOOK_URL:
+        print("Discord Webhook URL 未設定")
+        return
+    data = {"content": message}
+    try:
+        response = requests.post(DISCORD_WEBHOOK_URL, json=data)
+        if response.status_code != 204:
+            print(f"Discord通知失敗: {response.status_code} {response.text}")
+    except Exception as e:
+        print(f"Discord通知エラー: {e}")
 
-    def fetch_latest_price_and_atr(self, code):
-        # 銘柄コードをYahoo用に変換（例: 7203.T）
-        ticker = f"{code}.T"
+def round_to_nearest_10(x):
+    """10の位で四捨五入"""
+    return int(round(x / 10.0) * 10)
+
+def calculate_atr_safe(code, window=20):
+    """20日間ATRと直近終値を取得"""
+    ticker = yf.Ticker(code + ".T")
+    hist = ticker.history(period="3mo", interval="1d", auto_adjust=True)
+    if hist.empty or len(hist) < window:
+        return None, None
+    high = hist["High"]
+    low = hist["Low"]
+    close = hist["Close"]
+    df = pd.DataFrame({"high": high, "low": low, "close": close})
+    df["prev_close"] = df["close"].shift(1)
+    df = df.dropna()
+    df["tr1"] = df["high"] - df["low"]
+    df["tr2"] = (df["high"] - df["prev_close"]).abs()
+    df["tr3"] = (df["low"] - df["prev_close"]).abs()
+    df["tr"] = df[["tr1", "tr2", "tr3"]].max(axis=1)
+    atr = df["tr"].rolling(window=window).mean().iloc[-1]
+    current_price = df["close"].iloc[-1]
+    return atr, current_price
+
+def update_loss_cut():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute("SELECT id, code, position, loss_price FROM holding_stocks")
+    rows = cur.fetchall()
+    if not rows:
+        print("更新対象の銘柄がありません。")
+        conn.close()
+        return
+
+    updated_stocks = []  # 更新対象リスト
+    errors = []
+
+    for row in rows:
+        stock_id = row["id"]
+        code = row["code"].rstrip(".T")
+        position = row["position"]
+        current_loss_price = row["loss_price"]
 
         try:
-            df = yf.download(ticker, period="14d", interval="1d", progress=False)
-            if df.empty or len(df) < 2:
-                return None, None
+            atr, current_price = calculate_atr_safe(code)
+            if atr is None:
+                errors.append(f"{code}: ATRまたは価格取得失敗")
+                continue
 
-            df['H-L'] = df['High'] - df['Low']
-            df['H-PC'] = abs(df['High'] - df['Close'].shift(1))
-            df['L-PC'] = abs(df['Low'] - df['Close'].shift(1))
-            df['TR'] = df[['H-L', 'H-PC', 'L-PC']].max(axis=1)
-            df['ATR'] = df['TR'].rolling(window=14).mean()
-
-            latest_close = df['Close'].iloc[-1]
-            latest_atr = df['ATR'].iloc[-1]
-
-            return latest_close, latest_atr
+            if position == "買い":
+                candidate = current_price - 1.5 * atr
+                candidate = round_to_nearest_10(candidate)
+                if candidate > current_loss_price:
+                    cur.execute("UPDATE holding_stocks SET loss_price = ? WHERE id = ?", (candidate, stock_id))
+                    updated_stocks.append((code, current_loss_price, candidate))
+            elif position == "売り":
+                candidate = current_price + 1.5 * atr
+                candidate = round_to_nearest_10(candidate)
+                if candidate < current_loss_price:
+                    cur.execute("UPDATE holding_stocks SET loss_price = ? WHERE id = ?", (candidate, stock_id))
+                    updated_stocks.append((code, current_loss_price, candidate))
+            else:
+                errors.append(f"{code}: positionが不明です ({position})")
 
         except Exception as e:
-            print(f"Error fetching data for {code}: {e}")
-            return None, None
+            errors.append(f"{code} 処理中エラー: {e}")
 
-    def calculate_loss_cut_price(self, close, atr, position):
-        if pd.isna(close) or pd.isna(atr):
-            return None
+    conn.commit()
+    conn.close()
 
-        # ロスカット値の算出
-        if position == "buy":
-            price = close - 2 * atr
-        elif position == "sell":
-            price = close + 2 * atr
-        else:
-            return None
+    # Discord通知まとめ
+    msg_lines = []
+    if updated_stocks:
+        msg_lines.append("🟢 ロスカット更新対象銘柄:")
+        for c, old, new in updated_stocks:
+            msg_lines.append(f"- {c}: {old}円 → {new}円")
+    else:
+        msg_lines.append("🔵 本日更新対象の銘柄はありません。")
 
-        # 10円単位に四捨五入
-        rounded_price = round(price / 10) * 10
-        return rounded_price
+    if errors:
+        msg_lines.append("\n❌ エラー銘柄:")
+        for e in errors:
+            msg_lines.append(f"- {e}")
 
-    def update_loss_cut_prices(self):
-        stocks = self.fetch_holding_stocks()
-
-        for stock_id, code, position in stocks:
-            print(f"Processing {code} ({position})...")
-
-            close, atr = self.fetch_latest_price_and_atr(code)
-            if close is None or atr is None:
-                print(f"  ➤ データ取得失敗: {code}")
-                continue
-
-            loss_price = self.calculate_loss_cut_price(close, atr, position)
-            if loss_price is None:
-                print(f"  ➤ ロスカット価格の計算失敗: {code}")
-                continue
-
-            # UPDATE文でloss_priceを更新
-            self.cursor.execute('''
-                UPDATE holding_stocks
-                SET loss_price = ?
-                WHERE id = ?
-            ''', (loss_price, stock_id))
-
-            print(f"  ➤ loss_price = {loss_price} に更新")
-
-        self.conn.commit()
-
-    def close(self):
-        self.conn.close()
-
+    notify_discord("\n".join(msg_lines))
 
 if __name__ == "__main__":
-    updater = LossCutUpdater()
-    updater.update_loss_cut_prices()
-    updater.close()
+    update_loss_cut()
