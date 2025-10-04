@@ -6,7 +6,7 @@ import os
 import requests
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "../db/holding_stocks.db")
-DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK")
+DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_LOSSCUT_WEBHOOK")
 
 def notify_discord(message: str):
     """Discordに通知"""
