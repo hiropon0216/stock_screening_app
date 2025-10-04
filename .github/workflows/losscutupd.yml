@@ -30,18 +30,7 @@ jobs:
       - name: LossCutUpd を実行
         env:
           PYTHONPATH: ${{ github.workspace }}/app
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_LOSSCUT_WEBHOOK }}
+          DISCORD_LOSSCUT_WEBHOOK: ${{ secrets.DISCORD_LOSSCUT_WEBHOOK }}
         run: |
+          echo "DISCORD_LOSSCUT_WEBHOOK: $DISCORD_LOSSCUT_WEBHOOK"  # 確認用
           python app/LossCutUpd.py
-
-      - name: Discordに最終通知
-        if: always()
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_LOSSCUT_WEBHOOK }}
-        run: |
-          STATUS="${{ job.status }}"
-          MESSAGE="✅ ロスカット自動更新ジョブ完了（ステータス: ${STATUS}）"
-          curl -H "Content-Type: application/json" \
-               -X POST \
-               -d "{\"content\": \"$MESSAGE\"}" \
-               $DISCORD_WEBHOOK

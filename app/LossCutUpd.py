@@ -1,7 +1,6 @@
 import sqlite3
 import yfinance as yf
 import pandas as pd
-import math
 import os
 import requests
 
@@ -22,11 +21,9 @@ def notify_discord(message: str):
         print(f"Discord通知エラー: {e}")
 
 def round_to_nearest_10(x):
-    """10の位で四捨五入"""
     return int(round(x / 10.0) * 10)
 
 def calculate_atr_safe(code, window=20):
-    """20日間ATRと直近終値を取得"""
     ticker = yf.Ticker(code + ".T")
     hist = ticker.history(period="3mo", interval="1d", auto_adjust=True)
     if hist.empty or len(hist) < window:
@@ -46,7 +43,6 @@ def calculate_atr_safe(code, window=20):
     return atr, current_price
 
 def update_loss_cut():
-    print("DISCORD_WEBHOOK_URL:", DISCORD_WEBHOOK_URL)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
@@ -57,7 +53,7 @@ def update_loss_cut():
         conn.close()
         return
 
-    updated_stocks = []  # 更新対象リスト
+    updated_stocks = []
     errors = []
 
     for row in rows:
@@ -73,20 +69,17 @@ def update_loss_cut():
                 continue
 
             if position == "買い":
-                candidate = current_price - 1.5 * atr
-                candidate = round_to_nearest_10(candidate)
+                candidate = round_to_nearest_10(current_price - 1.5 * atr)
                 if candidate > current_loss_price:
-                    cur.execute("UPDATE holding_stocks SET loss_price = ? WHERE id = ?", (candidate, stock_id))
+                    cur.execute("UPDATE holding_stocks SET loss_price=? WHERE id=?", (candidate, stock_id))
                     updated_stocks.append((code, current_loss_price, candidate))
             elif position == "売り":
-                candidate = current_price + 1.5 * atr
-                candidate = round_to_nearest_10(candidate)
+                candidate = round_to_nearest_10(current_price + 1.5 * atr)
                 if candidate < current_loss_price:
-                    cur.execute("UPDATE holding_stocks SET loss_price = ? WHERE id = ?", (candidate, stock_id))
+                    cur.execute("UPDATE holding_stocks SET loss_price=? WHERE id=?", (candidate, stock_id))
                     updated_stocks.append((code, current_loss_price, candidate))
             else:
-                errors.append(f"{code}: positionが不明です ({position})")
-
+                errors.append(f"{code}: position不明 ({position})")
         except Exception as e:
             errors.append(f"{code} 処理中エラー: {e}")
 
@@ -110,4 +103,5 @@ def update_loss_cut():
     notify_discord("\n".join(msg_lines))
 
 if __name__ == "__main__":
+    print(f"DISCORD_WEBHOOK_URL: {DISCORD_WEBHOOK_URL}")  # デバッグ用
     update_loss_cut()
