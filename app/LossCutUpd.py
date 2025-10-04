@@ -1,7 +1,6 @@
 import sqlite3
 import yfinance as yf
 import pandas as pd
-import math
 import os
 import requests
 
@@ -56,7 +55,7 @@ def update_loss_cut():
         conn.close()
         return
 
-    updated_stocks = []  # 更新対象リスト
+    updated_stocks = []  # 通知候補リスト
     errors = []
 
     for row in rows:
@@ -85,20 +84,18 @@ def update_loss_cut():
             # デバッグ用出力
             print(f"[DEBUG] {code} | Position: {position} | DB: {current_loss_price} | Candidate: {candidate} | Update? {update_needed}")
 
-            # 更新
+            # DBは更新せず、通知対象にだけ追加
             if update_needed:
-                cur.execute("UPDATE holding_stocks SET loss_price = ? WHERE id = ?", (candidate, stock_id))
                 updated_stocks.append((code, current_loss_price, candidate))
 
         except Exception as e:
             errors.append(f"{code} 処理中エラー: {e}")
 
-    conn.commit()
     conn.close()
 
-    # 更新対象がある場合のみ通知
+    # 更新候補がある場合のみ通知
     if updated_stocks:
-        msg_lines = ["🟢 ロスカット更新対象銘柄:"]
+        msg_lines = ["🟢 ロスカット候補を算出しました（手動で更新してください）:"]
         for c, old, new in updated_stocks:
             msg_lines.append(f"- {c}: {old}円 → {new}円")
         notify_discord("\n".join(msg_lines))
