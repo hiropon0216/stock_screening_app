@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS holding_stocks (
     name TEXT,
     market TEXT NOT NULL,
     loss_price REAL NOT NULL,
+    target_price REAL NOT NULL,
     buy_price REAL NOT NULL,
     buy_date TEXT NOT NULL,
     create_day TEXT NOT NULL

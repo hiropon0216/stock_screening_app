@@ -44,6 +44,7 @@
         <th>市場</th>
         <th>購入金額</th>
         <th>ロスカット金額</th>
+        <th>目標金額</th>
         <th>約定日</th>
         <th>操作</th>
     </tr>
@@ -55,6 +56,7 @@
         <td>{{ stock["market"] }}</td>
         <td>{{ stock["buy_price"] }}</td>
         <td>{{ stock["loss_price"] }}</td>
+        <td>{{ stock["target_price"] }}</td>
         <td>{{ stock["buy_date"] }}</td>
         <td>
             <button onclick="editStock({{ stock['id'] }}, '{{ stock['position'] }}', '{{ stock['code'] }}', {{ stock['buy_price'] }}, {{ stock['loss_price'] }}, '{{ stock['buy_date'] }}')">編集</button>
