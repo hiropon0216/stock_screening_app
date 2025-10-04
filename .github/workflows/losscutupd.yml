@@ -37,7 +37,7 @@ jobs:
       - name: Discordに最終通知
         if: always()
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_LOSSCUT_WEBHOOK }}
         run: |
           STATUS="${{ job.status }}"
           MESSAGE="✅ ロスカット自動更新ジョブ完了（ステータス: ${STATUS}）"

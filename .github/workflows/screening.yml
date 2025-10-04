@@ -50,7 +50,7 @@ jobs:
       - name: Discordに通知を送信
         if: always()  # スクリプト成功/失敗に関係なく通知
         env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_SCREENING_URL }}
         run: |
           STATUS="${{ job.status }}"
           MESSAGE="✅ 株スクリーニング完了！（ステータス: ${STATUS}）"
