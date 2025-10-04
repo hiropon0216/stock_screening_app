@@ -30,7 +30,7 @@ jobs:
       - name: LossCutUpd を実行
         env:
           PYTHONPATH: ${{ github.workspace }}/app
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_LOSSCUT_WEBHOOK }}
         run: |
           python app/LossCutUpd.py
 
