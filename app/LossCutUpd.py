@@ -46,6 +46,7 @@ def calculate_atr_safe(code, window=20):
     return atr, current_price
 
 def update_loss_cut():
+    print("DISCORD_WEBHOOK_URL:", DISCORD_WEBHOOK_URL)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
