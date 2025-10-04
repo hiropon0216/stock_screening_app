@@ -1,4 +1,4 @@
-name: ロスカット自動更新
+name: ロスカット計算ジョブ
 
 permissions:
   contents: write

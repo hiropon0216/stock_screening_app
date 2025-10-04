@@ -1,4 +1,4 @@
-name: Profit Target Check
+name: 利益確定計算ジョブ
 
 on:
   schedule:

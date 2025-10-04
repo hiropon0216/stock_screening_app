@@ -1,4 +1,4 @@
-name: 株スクリーニング定期実行
+name: 銘柄検索ジョブ
 
 permissions:
   contents: write
