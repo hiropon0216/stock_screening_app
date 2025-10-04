@@ -62,7 +62,9 @@ def add_stock():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
 
-
+# ---------------------------
+# 銘柄削除処理
+# ---------------------------
 @app.route("/delete_stock/<int:stock_id>", methods=["POST"])
 def delete_stock(stock_id):
     try:
@@ -71,6 +73,46 @@ def delete_stock(stock_id):
         cursor.execute("DELETE FROM holding_stocks WHERE id=?", (stock_id,))
         conn.commit()
         conn.close()
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+# ---------------------------
+# 銘柄更新処理（編集用）
+# ---------------------------
+@app.route("/update_stock", methods=["POST"])
+def update_stock():
+    try:
+        data = request.form
+        stock_id = int(data["id"])
+        position = data["position"]
+        code = data["code"].strip()
+        buy_price = float(data["buy_price"])
+        loss_price = float(data["loss_price"])
+        buy_date = data["buy_date"]
+
+        # 日本株の場合、末尾に.Tを補完
+        if not code.upper().endswith(".T"):
+            code = code + ".T"
+
+        # yfinanceで銘柄情報取得（名前・市場を更新）
+        ticker = yf.Ticker(code)
+        info = ticker.info
+        name = info.get("shortName")
+        market = info.get("exchange")
+        if not name or not market:
+            raise ValueError(f"銘柄コード {code} は不正または情報取得不可")
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE holding_stocks
+            SET position=?, code=?, name=?, market=?, loss_price=?, buy_price=?, buy_date=?
+            WHERE id=?
+        """, (position, code, name, market, loss_price, buy_price, buy_date, stock_id))
+        conn.commit()
+        conn.close()
+
         return jsonify({"status": "ok"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})

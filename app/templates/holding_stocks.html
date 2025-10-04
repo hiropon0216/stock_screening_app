@@ -5,7 +5,7 @@
     <title>保有銘柄管理</title>
 </head>
 <body>
-<h2>保有銘柄登録</h2>
+<h2>保有銘柄登録（新規）</h2>
 <form id="stockForm">
     <label>ポジション:</label>
     <input type="radio" name="position" value="買い" required>買い
@@ -33,6 +33,8 @@
 
 <div id="errorMessage" style="color:red;"></div>
 
+<hr>
+
 <h2>保有中銘柄一覧</h2>
 <table border="1">
     <tr>
@@ -43,7 +45,7 @@
         <th>購入金額</th>
         <th>ロスカット金額</th>
         <th>約定日</th>
-        <th>削除ボタン</th>
+        <th>操作</th>
     </tr>
     {% for stock in stocks %}
     <tr id="row-{{ stock['id'] }}">
@@ -55,18 +57,49 @@
         <td>{{ stock["loss_price"] }}</td>
         <td>{{ stock["buy_date"] }}</td>
         <td>
+            <button onclick="editStock({{ stock['id'] }}, '{{ stock['position'] }}', '{{ stock['code'] }}', {{ stock['buy_price'] }}, {{ stock['loss_price'] }}, '{{ stock['buy_date'] }}')">編集</button>
             <button onclick="deleteStock({{ stock['id'] }})">削除</button>
         </td>
     </tr>
     {% endfor %}
 </table>
 
+<hr>
+
+<h2>銘柄編集</h2>
+<form id="editForm" style="display:none;">
+    <input type="hidden" name="id">
+    
+    <label>ポジション:</label>
+    <input type="radio" name="position" value="買い">買い
+    <input type="radio" name="position" value="売り">売り（空売り）
+    <br>
+
+    <label>銘柄コード:</label>
+    <input type="text" name="code" required>
+    <br>
+
+    <label>購入金額:</label>
+    <input type="number" step="0.01" name="buy_price" required>
+    <br>
+
+    <label>ロスカット金額:</label>
+    <input type="number" step="0.01" name="loss_price" required>
+    <br>
+
+    <label>約定日:</label>
+    <input type="date" name="buy_date" required>
+    <br><br>
+
+    <button type="submit">更新</button>
+    <button type="button" onclick="cancelEdit()">キャンセル</button>
+</form>
+
 <script>
 // 新規登録処理
 document.getElementById("stockForm").addEventListener("submit", async function(e){
     e.preventDefault();
-    const form = e.target;
-    const formData = new FormData(form);
+    const formData = new FormData(e.target);
 
     const res = await fetch("/add_stock", {
         method: "POST",
@@ -77,9 +110,9 @@ document.getElementById("stockForm").addEventListener("submit", async function(e
     const msgDiv = document.getElementById("errorMessage");
     if(result.status === "ok"){
         msgDiv.textContent = "";   
-        location.reload();  // 成功したら一覧更新
+        location.reload();
     } else {
-        msgDiv.textContent = result.message;  // エラー表示
+        msgDiv.textContent = result.message;
     }
 });
 
@@ -87,18 +120,52 @@ document.getElementById("stockForm").addEventListener("submit", async function(e
 async function deleteStock(stockId) {
     if(!confirm("本当に削除しますか？")) return;
 
-    const res = await fetch(`/delete_stock/${stockId}`, {
-        method: "POST"
-    });
+    const res = await fetch(`/delete_stock/${stockId}`, { method: "POST" });
     const result = await res.json();
 
     if(result.status === "ok") {
-        const row = document.getElementById(`row-${stockId}`);
-        if(row) row.remove();
+        document.getElementById(`row-${stockId}`)?.remove();
     } else {
         alert("削除エラー: " + result.message);
     }
 }
+
+// 編集処理（フォームに既存データをセット）
+function editStock(id, position, code, buy_price, loss_price, buy_date) {
+    const form = document.getElementById("editForm");
+    form.style.display = "block";
+    form.id.value = id;
+    form.code.value = code;
+    form.buy_price.value = buy_price;
+    form.loss_price.value = loss_price;
+    form.buy_date.value = buy_date;
+
+    // ラジオボタン設定
+    [...form.position].forEach(r => r.checked = (r.value === position));
+}
+
+// 編集キャンセル
+function cancelEdit(){
+    document.getElementById("editForm").style.display = "none";
+}
+
+// 編集送信
+document.getElementById("editForm").addEventListener("submit", async function(e){
+    e.preventDefault();
+    const formData = new FormData(e.target);
+
+    const res = await fetch("/update_stock", {
+        method: "POST",
+        body: formData
+    });
+    const result = await res.json();
+
+    if(result.status === "ok"){
+        location.reload();
+    } else {
+        alert("更新エラー: " + result.message);
+    }
+});
 </script>
 </body>
 </html>
