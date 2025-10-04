@@ -68,40 +68,44 @@ def update_loss_cut():
                 errors.append(f"{code}: ATRまたは価格取得失敗")
                 continue
 
+            # ロスカット候補を計算
             if position == "買い":
                 candidate = round_to_nearest_10(current_price - 1.5 * atr)
-                if candidate > current_loss_price:
-                    cur.execute("UPDATE holding_stocks SET loss_price=? WHERE id=?", (candidate, stock_id))
-                    updated_stocks.append((code, current_loss_price, candidate))
             elif position == "売り":
                 candidate = round_to_nearest_10(current_price + 1.5 * atr)
-                if candidate < current_loss_price:
-                    cur.execute("UPDATE holding_stocks SET loss_price=? WHERE id=?", (candidate, stock_id))
-                    updated_stocks.append((code, current_loss_price, candidate))
             else:
                 errors.append(f"{code}: position不明 ({position})")
+                continue
+
+            # デバッグ出力
+            print(f"[DEBUG] {code} | position: {position} | current_price: {current_price} | ATR: {atr} | 現在のロスカット: {current_loss_price} | 候補: {candidate}")
+
+            # 更新判定
+            if (position == "買い" and candidate > current_loss_price) or \
+               (position == "売り" and candidate < current_loss_price):
+                cur.execute("UPDATE holding_stocks SET loss_price=? WHERE id=?", (candidate, stock_id))
+                updated_stocks.append((code, current_loss_price, candidate))
+
         except Exception as e:
             errors.append(f"{code} 処理中エラー: {e}")
 
     conn.commit()
     conn.close()
 
-    # Discord通知まとめ
-    msg_lines = []
-    if updated_stocks:
-        msg_lines.append("🟢 ロスカット更新対象銘柄:")
-        for c, old, new in updated_stocks:
-            msg_lines.append(f"- {c}: {old}円 → {new}円")
+    # Discord通知まとめ（更新対象がある場合のみ）
+    if updated_stocks or errors:
+        msg_lines = []
+        if updated_stocks:
+            msg_lines.append("🟢 ロスカット更新対象銘柄:")
+            for c, old, new in updated_stocks:
+                msg_lines.append(f"- {c}: {old}円 → {new}円")
+        if errors:
+            msg_lines.append("\n❌ エラー銘柄:")
+            for e in errors:
+                msg_lines.append(f"- {e}")
+        notify_discord("\n".join(msg_lines))
     else:
-        msg_lines.append("🔵 本日更新対象の銘柄はありません。")
-
-    if errors:
-        msg_lines.append("\n❌ エラー銘柄:")
-        for e in errors:
-            msg_lines.append(f"- {e}")
-
-    notify_discord("\n".join(msg_lines))
+        print("更新対象なし。通知は送信されません。")
 
 if __name__ == "__main__":
-    print(f"DISCORD_WEBHOOK_URL: {DISCORD_WEBHOOK_URL}")  # デバッグ用
     update_loss_cut()
