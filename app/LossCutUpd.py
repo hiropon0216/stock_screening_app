@@ -6,7 +6,7 @@ import os
 import requests
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "../db/holding_stocks.db")
-DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_LOSSCUT_WEBHOOK")
+DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_LOSSCUT_WEBHOOK")  # GitHub ActionsのSecret
 
 def notify_discord(message: str):
     """Discordに通知"""
@@ -65,35 +65,28 @@ def update_loss_cut():
         position = row["position"]
         current_loss_price = row["loss_price"]
 
-        # 型変換（DBの値が文字列の場合を考慮）
-        if current_loss_price is not None and isinstance(current_loss_price, str):
-            try:
-                current_loss_price = int(current_loss_price)
-            except:
-                errors.append(f"{code}: current_loss_price 型変換失敗 ({current_loss_price})")
-                continue
-
         try:
             atr, current_price = calculate_atr_safe(code)
             if atr is None:
                 errors.append(f"{code}: ATRまたは価格取得失敗")
                 continue
 
-            candidate = None
+            # 候補ロスカットを計算
             if position == "買い":
                 candidate = round_to_nearest_10(current_price - 1.5 * atr)
-                update_flag = candidate > current_loss_price
+                update_needed = candidate > current_loss_price
             elif position == "売り":
                 candidate = round_to_nearest_10(current_price + 1.5 * atr)
-                update_flag = candidate < current_loss_price
+                update_needed = candidate < current_loss_price
             else:
                 errors.append(f"{code}: positionが不明です ({position})")
                 continue
 
-            # デバッグ出力
-            print(f"[DEBUG] {code} | Position: {position} | Current: {current_loss_price} | Candidate: {candidate} | Update? {update_flag}")
+            # デバッグ用出力
+            print(f"[DEBUG] {code} | Position: {position} | DB: {current_loss_price} | Candidate: {candidate} | Update? {update_needed}")
 
-            if update_flag:
+            # 更新
+            if update_needed:
                 cur.execute("UPDATE holding_stocks SET loss_price = ? WHERE id = ?", (candidate, stock_id))
                 updated_stocks.append((code, current_loss_price, candidate))
 
@@ -103,18 +96,17 @@ def update_loss_cut():
     conn.commit()
     conn.close()
 
-    # Discord通知（更新対象がある場合のみ）
+    # 更新対象がある場合のみ通知
     if updated_stocks:
         msg_lines = ["🟢 ロスカット更新対象銘柄:"]
         for c, old, new in updated_stocks:
             msg_lines.append(f"- {c}: {old}円 → {new}円")
-        if errors:
-            msg_lines.append("\n❌ エラー銘柄:")
-            for e in errors:
-                msg_lines.append(f"- {e}")
         notify_discord("\n".join(msg_lines))
-    else:
-        print("🔵 本日更新対象の銘柄はありません。")
+
+    if errors:
+        print("\n❌ エラー銘柄:")
+        for e in errors:
+            print(f"- {e}")
 
 if __name__ == "__main__":
     update_loss_cut()
