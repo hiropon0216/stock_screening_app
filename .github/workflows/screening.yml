@@ -33,7 +33,7 @@ jobs:
           TOPIX_TICKER: ^TOPX    # 任意（TOPIX分析を含める場合）
         run: |
           ls -la
-          python app/BatchScreening_to_db.py
+          python app/BatchScreening.py
 
       - name: 変更がある場合のみコミット＆プッシュ (DB版)
         run: |
@@ -57,9 +57,9 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_SCREENING_URL }}
         run: |
           STATUS="${{ job.status }}"
-          MESSAGE="✅ 株スクリーニング結果をDBに保存しました！（ステータス: ${STATUS}）"
+          MESSAGE="✅ 株スクリーニング結果をDBに保存したにゃ！"
           if [ "$STATUS" != "success" ]; then
-            MESSAGE="❌ 株スクリーニング失敗しました（ステータス: ${STATUS}）"
+            MESSAGE="❌ 株スクリーニングに失敗したにゃ。原因調査してくれにゃ。"
           fi
           curl -H "Content-Type: application/json" \
                -X POST \
