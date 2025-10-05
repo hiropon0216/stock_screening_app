@@ -11,6 +11,7 @@ on:
 jobs:
   run-batch:
     runs-on: ubuntu-latest
+
     steps:
       - name: リポジトリをチェックアウト
         uses: actions/checkout@v3
@@ -25,25 +26,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: スクリプトを実行し、結果ファイルを出力
+      - name: スクリプトを実行し、結果をDBへ保存
         env:
           PYTHONPATH: ${{ github.workspace }}/app
+          DB_PATH: ${{ github.workspace }}/db/buy_sell_analysis.db
+          TOPIX_TICKER: ^TOPX    # 任意（TOPIX分析を含める場合）
         run: |
           ls -la
-          python app/BatchScreening.py
+          python app/BatchScreening_to_db.py
 
-      - name: 変更がある場合のみコミット＆プッシュ
+      - name: 変更がある場合のみコミット＆プッシュ (DB版)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
 
-          git add app/output/*.csv
+          # DBをコミット対象に追加
+          git add db/buy_sell_analysis.db
 
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "📈 自動スクリーニング結果を追加 ($(date +'%Y-%m-%d'))"
+            git commit -m "📊 自動スクリーニング結果(DB)を更新 ($(date +'%Y-%m-%d'))"
             git push origin main
           fi
 
@@ -53,7 +57,7 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_SCREENING_URL }}
         run: |
           STATUS="${{ job.status }}"
-          MESSAGE="✅ 株スクリーニング完了！（ステータス: ${STATUS}）"
+          MESSAGE="✅ 株スクリーニング結果をDBに保存しました！（ステータス: ${STATUS}）"
           if [ "$STATUS" != "success" ]; then
             MESSAGE="❌ 株スクリーニング失敗しました（ステータス: ${STATUS}）"
           fi
