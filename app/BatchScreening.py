@@ -1,131 +1,174 @@
 import os
-import json
-import time
-import requests
-import pandas as pd
+import sqlite3
 from datetime import datetime
-from utils.stageAnalyzer import StageAnalyzer
-from utils.stockDataFetcher import StockDataFetcher
-from utils.discordNotifier import DiscordNotifier
+import pandas as pd
+import yfinance as yf
+from TickersLoader import TickersLoader
+from StockDataFetcher import StockDataFetcher
+from StageAnalyzer import StageAnalyzer
+from TechnicalIndicators import calculate_indicators  # RSI, MACD, ATR, BB, OBV計算
 
-# ---- 設定値 ----
-CACHE_FILE = "cache/screening_result.json"
-STOCK_LIST_FILE = "data/stock_list.csv"
+DB_PATH = "db/buy_sell_analysis.db"
 
-# ---- Discord Webhook ----
-DISCORD_NOTIFY_URL = os.getenv("DISCORD_NOTIFY_URL")                # 通常スクリーニング通知
-DISCORD_CONFIRM_PROFIT_URL = os.getenv("DISCORD_CONFIRM_PROFIT_URL") # 利確通知用Webhook
+def fetch_latest_price_volume(ticker):
+    """最新株価と出来高を取得"""
+    try:
+        df = yf.Ticker(ticker).history(period='5d')
+        df = df[df['Close'].notnull()]
+        if df.empty:
+            return None, None
+        latest_row = df.iloc[-1]
+        latest_date = latest_row.name.to_pydatetime().date()
+        today = datetime.now().date()
+        if latest_date > today:
+            return None, None
+        return float(latest_row['Close']), int(latest_row['Volume'])
+    except Exception as e:
+        print(f"{ticker}: 最新株価・出来高取得エラー: {e}")
+        return None, None
 
-# ---- 機能クラス初期化 ----
-analyzer = StageAnalyzer()
-fetcher = StockDataFetcher()
-notifier = DiscordNotifier()
+def insert_results_to_db(results):
+    """DBに結果を全量INSERT"""
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
 
+    # テーブル作成（存在しない場合のみ）
+    create_table_sql = """
+    CREATE TABLE IF NOT EXISTS analysis_results (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT NOT NULL,
+        name TEXT,
+        market TEXT NOT NULL,
+        date TEXT NOT NULL,
+        stock_stage INTEGER NOT NULL,
+        stock_ema5 REAL NOT NULL,
+        stock_ema20 REAL NOT NULL,
+        stock_ema40 REAL NOT NULL,
+        rsi REAL NOT NULL,
+        rsi_delta REAL NOT NULL,
+        macd REAL NOT NULL,
+        macd_signal REAL NOT NULL,
+        macd_histogram REAL NOT NULL,
+        recent_golden_cross BOOLEAN NOT NULL,
+        recent_dead_cross BOOLEAN NOT NULL,
+        atr REAL NOT NULL,
+        closing_price REAL NOT NULL,
+        price_max_since_buy REAL,
+        bb_plus_1sigma REAL NOT NULL,
+        bb_plus_2sigma REAL NOT NULL,
+        bb_minus_1sigma REAL NOT NULL,
+        bb_minus_2sigma REAL NOT NULL,
+        volume REAL NOT NULL,
+        volume_avg_5d REAL NOT NULL,
+        volume_avg_20d REAL NOT NULL,
+        obv REAL NOT NULL,
+        obv_pre_1 REAL NOT NULL,
+        obv_pre_2 REAL NOT NULL,
+        obv_pre_3 REAL NOT NULL,
+        obv_ma_20 REAL NOT NULL,
+        latest_settlement_date TEXT,
+        create_day TEXT NOT NULL
+    );
+    """
+    cur.execute(create_table_sql)
 
-def load_stock_list():
-    """銘柄リストをCSVから読み込み"""
-    if not os.path.exists(STOCK_LIST_FILE):
-        raise FileNotFoundError(f"銘柄リストが見つかりません: {STOCK_LIST_FILE}")
-    return pd.read_csv(STOCK_LIST_FILE)
+    # 既存レコード削除
+    cur.execute("DELETE FROM analysis_results;")
+    conn.commit()
 
+    # 全件INSERT
+    for record in results:
+        cur.execute("""
+            INSERT INTO analysis_results (
+                code, name, market, date,
+                stock_stage, stock_ema5, stock_ema20, stock_ema40,
+                rsi, rsi_delta, macd, macd_signal, macd_histogram,
+                recent_golden_cross, recent_dead_cross, atr, closing_price, price_max_since_buy,
+                bb_plus_1sigma, bb_plus_2sigma, bb_minus_1sigma, bb_minus_2sigma,
+                volume, volume_avg_5d, volume_avg_20d,
+                obv, obv_pre_1, obv_pre_2, obv_pre_3, obv_ma_20,
+                latest_settlement_date, create_day
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        """, (
+            record['code'], record['name'], record['market'], record['date'],
+            record['stock_stage'], record['stock_ema5'], record['stock_ema20'], record['stock_ema40'],
+            record['rsi'], record['rsi_delta'], record['macd'], record['macd_signal'], record['macd_histogram'],
+            record['recent_golden_cross'], record['recent_dead_cross'], record['atr'], record['closing_price'],
+            record['price_max_since_buy'], record['bb_plus_1sigma'], record['bb_plus_2sigma'],
+            record['bb_minus_1sigma'], record['bb_minus_2sigma'], record['volume'], record['volume_avg_5d'],
+            record['volume_avg_20d'], record['obv'], record['obv_pre_1'], record['obv_pre_2'],
+            record['obv_pre_3'], record['obv_ma_20'], record['latest_settlement_date'], record['create_day']
+        ))
+    conn.commit()
+    conn.close()
+    print(f"✅ {len(results)} 件の分析結果をDBに格納しました。")
 
-def load_previous_cache():
-    """前回のスクリーニング結果を読み込み"""
-    if not os.path.exists(CACHE_FILE):
-        return {}
-    with open(CACHE_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+def run_batch():
+    loader = TickersLoader()
+    tickers = loader.get_all_tickers()
+    fetcher = StockDataFetcher()
+    stage_analyzer = StageAnalyzer(short_ema_col='EMA_5', mid_ema_col='EMA_20', long_ema_col='EMA_40')
+    results = []
 
-
-def save_cache(data):
-    """スクリーニング結果を保存"""
-    os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
-    with open(CACHE_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-
-def detect_stage_changes(prev_data, current_data):
-    """ステージの変化を検出"""
-    changes = []
-    for code, info in current_data.items():
-        prev_stage = prev_data.get(code, {}).get("stage")
-        current_stage = info.get("stage")
-        if prev_stage and prev_stage != current_stage:
-            changes.append({
-                "code": code,
-                "name": info["name"],
-                "prev_stage": prev_stage,
-                "current_stage": current_stage,
-            })
-    return changes
-
-
-def detect_profit_confirms(prev_data, current_data):
-    """利確検知（例: ステージ1→ステージ3など、下降サイクル入りを検知）"""
-    profits = []
-    for code, info in current_data.items():
-        prev_stage = prev_data.get(code, {}).get("stage")
-        current_stage = info.get("stage")
-
-        # 例: 上昇完了のシグナルを「1 → 3」などで判定
-        if prev_stage == 1 and current_stage == 3:
-            profits.append({
-                "code": code,
-                "name": info["name"],
-                "prev_stage": prev_stage,
-                "current_stage": current_stage,
-            })
-    return profits
-
-
-def run_batch_screening():
-    """スクリーニングバッチのメイン処理"""
-    print(f"[INFO] Batch Screening started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    stock_list = load_stock_list()
-    prev_data = load_previous_cache()
-    current_data = {}
-
-    for _, row in stock_list.iterrows():
-        code = str(row["code"]).zfill(4)
-        name = row["name"]
-
+    for item in tickers:
+        ticker = item['symbol']
+        name = item['銘柄名']
+        market = item.get('市場・商品区分','')
+        print(f"処理中: {ticker} - {name} - {market}")
         try:
-            df = fetcher.fetch_stock_data(code)
-            stage = analyzer.analyze(df)
-            current_data[code] = {"name": name, "stage": stage}
-            time.sleep(1.5)  # API呼び出し制御
+            df = fetcher.fetch(ticker)
+            if df is None or df.empty:
+                continue
+            latest_row = df.iloc[-1]
+            stock_stage_str = stage_analyzer.determine_stage(latest_row)
+            stock_stage = int(stock_stage_str.replace("ステージ","")) if stock_stage_str.startswith("ステージ") else None
 
+            # 技術指標計算（RSI, MACD, ATR, Bollinger, OBVなど）
+            indicators = calculate_indicators(df)  # 戻り値は dict
+
+            closing_price, volume = fetch_latest_price_volume(ticker)
+            record = {
+                'code': ticker,
+                'name': name,
+                'market': market,
+                'date': datetime.now().strftime("%Y-%m-%d"),
+                'stock_stage': stock_stage,
+                'stock_ema5': latest_row['EMA_5'],
+                'stock_ema20': latest_row['EMA_20'],
+                'stock_ema40': latest_row['EMA_40'],
+                'rsi': indicators['rsi'],
+                'rsi_delta': indicators['rsi_delta'],
+                'macd': indicators['macd'],
+                'macd_signal': indicators['macd_signal'],
+                'macd_histogram': indicators['macd_histogram'],
+                'recent_golden_cross': indicators['recent_golden_cross'],
+                'recent_dead_cross': indicators['recent_dead_cross'],
+                'atr': indicators['atr'],
+                'closing_price': closing_price,
+                'price_max_since_buy': indicators.get('price_max_since_buy'),
+                'bb_plus_1sigma': indicators['bb_plus_1sigma'],
+                'bb_plus_2sigma': indicators['bb_plus_2sigma'],
+                'bb_minus_1sigma': indicators['bb_minus_1sigma'],
+                'bb_minus_2sigma': indicators['bb_minus_2sigma'],
+                'volume': volume,
+                'volume_avg_5d': indicators['volume_avg_5d'],
+                'volume_avg_20d': indicators['volume_avg_20d'],
+                'obv': indicators['obv'],
+                'obv_pre_1': indicators['obv_pre_1'],
+                'obv_pre_2': indicators['obv_pre_2'],
+                'obv_pre_3': indicators['obv_pre_3'],
+                'obv_ma_20': indicators['obv_ma_20'],
+                'latest_settlement_date': item.get('latest_settlement_date'),
+                'create_day': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            results.append(record)
         except Exception as e:
-            print(f"[ERROR] {code} {name}: {e}")
+            print(f"エラー: {ticker} - {name}: {e}")
             continue
 
-    save_cache(current_data)
-    print("[INFO] Screening complete. Detecting changes...")
-
-    # ステージ変化通知
-    changes = detect_stage_changes(prev_data, current_data)
-    if changes:
-        message = "📈 **ステージ変化を検出しました**\n"
-        for c in changes:
-            message += f"・{c['name']}（{c['code']}）: Stage {c['prev_stage']} → {c['current_stage']}\n"
-        notifier.send_discord(DISCORD_NOTIFY_URL, message)
-        print(f"[INFO] {len(changes)}件の変化を通知しました。")
-    else:
-        print("[INFO] ステージ変化なし。")
-
-    # 利確通知
-    profits = detect_profit_confirms(prev_data, current_data)
-    if profits:
-        message = "💰 **利確シグナルを検出しました**\n"
-        for p in profits:
-            message += f"・{p['name']}（{p['code']}）: Stage {p['prev_stage']} → {p['current_stage']}\n"
-        notifier.send_discord(DISCORD_CONFIRM_PROFIT_URL, message)
-        print(f"[INFO] {len(profits)}件の利確シグナルを通知しました。")
-    else:
-        print("[INFO] 利確シグナルなし。")
-
-    print(f"[INFO] Batch Screening finished at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
+    # DBに格納
+    insert_results_to_db(results)
 
 if __name__ == "__main__":
-    run_batch_screening()
+    run_batch()
