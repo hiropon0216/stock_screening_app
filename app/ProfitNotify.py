@@ -58,8 +58,8 @@ def check_profit_targets():
 
     if notify_list:
         msg_lines = [
-            "‼️売り時が来ました‼️",
-            "あなたの保有する銘柄を下記の条件で売ってください。\n",
+            "‼️売り時が来たにゃ‼️",
+            "保有する銘柄を下記の条件で売るにゃ。\n",
             "銘柄　　　　　　　　　注文区分　　　　　　　　金額"
         ]
         for code, name, price in notify_list:

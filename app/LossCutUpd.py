@@ -95,7 +95,7 @@ def update_loss_cut():
 
     # 更新候補がある場合のみ通知
     if updated_stocks:
-        msg_lines = ["🟢 ロスカット候補を算出しました（手動で更新してください）:"]
+        msg_lines = ["🟢 ロスカット候補を算出したにゃ。忘れずにロスカット更新するにゃ。"]
         for c, old, new in updated_stocks:
             msg_lines.append(f"- {c}: {old}円 → {new}円")
         notify_discord("\n".join(msg_lines))

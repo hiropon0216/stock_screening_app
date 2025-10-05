@@ -1,23 +1,27 @@
 # stageAnalyzer.py
 class StageAnalyzer:
-    def __init__(self, short_ema_col='EMA_5', mid_ema_col='EMA_20', long_ema_col='EMA_40'):
+    def __init__(self, short_ema_col='EMA_5', mid_ema_col='EMA_25', long_ema_col='EMA_40'):
         self.short = short_ema_col
         self.mid = mid_ema_col
         self.long = long_ema_col
 
     def determine_stage(self, row):
-        short = row[self.short].iloc[-1]
-        mid = row[self.mid].iloc[-1]
-        long = row[self.long].iloc[-1]
+        """
+        最新行（Series）からステージを判定する。
+        """
+        short = row[self.short]
+        mid = row[self.mid]
+        long = row[self.long]
 
+        # 一目均衡表 大循環分析の基本ロジック
         if short > mid > long:
-            return "ステージ1"
+            return "ステージ1"  # 上昇相場の初期
         elif mid > short > long:
             return "ステージ2"
         elif mid > long > short:
-            return "ステージ3"
+            return "ステージ3"  # 上昇相場から下降相場への転換期
         elif long > mid > short:
-            return "ステージ4"
+            return "ステージ4"  # 下降相場
         elif long > short > mid:
             return "ステージ5"
         elif short > long > mid:
@@ -27,24 +31,25 @@ class StageAnalyzer:
 
     def analyze_all(self, ema_data_dict):
         """
+        各銘柄ごとに最新ステージを判定して返す。
         ema_data_dict: dict[str, pd.DataFrame]
-            - key: 銘柄コード
-            - value: EMA計算済みのDataFrame
         """
         result = {}
         for ticker, df in ema_data_dict.items():
             if df.empty or len(df) < 1:
                 result[ticker] = "データ不足"
                 continue
-            latest_row = df.iloc[-1]
-            result[ticker] = self.determine_stage(latest_row)
+
+            latest_row = df.iloc[-1]  # 最新行
+            stage = self.determine_stage(latest_row)
+            result[ticker] = stage
         return result
 
-# ここから下がテスト（直接実行用）コード
+
+# テストコード
 if __name__ == "__main__":
     import pandas as pd
 
-    # 仮のデータを作成
     data = {
         'EMA_5':  [105],
         'EMA_25': [100],
@@ -52,7 +57,6 @@ if __name__ == "__main__":
     }
     df = pd.DataFrame(data)
 
-    # テスト実行
     analyzer = StageAnalyzer()
-    stage = analyzer.determine_stage(df)
+    stage = analyzer.determine_stage(df.iloc[-1])  # 最新行を渡す
     print("判定されたステージ:", stage)
