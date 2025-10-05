@@ -1,4 +1,4 @@
-name: 銘柄検索ジョブ
+name: 銘柄スクリーニングジョブ
 
 permissions:
   contents: write
