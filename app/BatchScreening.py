@@ -1,3 +1,4 @@
+# app/BatchScreening.py
 import os
 import sqlite3
 from datetime import datetime
@@ -6,35 +7,16 @@ import yfinance as yf
 from TickersLoader import TickersLoader
 from StockDataFetcher import StockDataFetcher
 from StageAnalyzer import StageAnalyzer
-from TechnicalIndicators import calculate_indicators  # 仮想モジュール：RSI, MACD, ATR, BB, OBV計算
+from TechnicalIndicators import calculate_indicators  # RSI, MACD, ATR, BB, OBV計算
 
 DB_PATH = "db/buy_sell_analysis.db"
 
-def fetch_latest_price_volume(ticker):
-    """最新株価と出来高を取得"""
-    try:
-        df = yf.Ticker(ticker).history(period='5d')
-        df = df[df['Close'].notnull()]
-        if df.empty:
-            return None, None
-        latest_row = df.iloc[-1]
-        latest_date = latest_row.name.to_pydatetime().date()
-        today = datetime.now().date()
-        if latest_date > today:
-            return None, None
-        return float(latest_row['Close']), int(latest_row['Volume'])
-    except Exception as e:
-        print(f"{ticker}: 最新株価・出来高取得エラー: {e}")
-        return None, None
-
-def insert_results_to_db(results):
-    """DBに結果を全量INSERT"""
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-
-    # テーブル作成（存在しない場合のみ）
-    create_table_sql = """
+# -------------------------
+# DB操作関連
+# -------------------------
+def create_analysis_table(conn):
+    """分析結果テーブル作成"""
+    create_sql = """
     CREATE TABLE IF NOT EXISTS analysis_results (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         code TEXT NOT NULL,
@@ -75,26 +57,30 @@ def insert_results_to_db(results):
         create_day TEXT NOT NULL
     );
     """
-    cur.execute(create_table_sql)
-
-    # 既存レコード削除
-    cur.execute("DELETE FROM analysis_results;")
+    conn.execute(create_sql)
     conn.commit()
 
-    # 全件INSERT
+def clear_analysis_table(conn):
+    """既存レコードを削除"""
+    conn.execute("DELETE FROM analysis_results;")
+    conn.commit()
+
+def insert_results(conn, results):
+    """分析結果をDBにINSERT"""
+    insert_sql = """
+        INSERT INTO analysis_results (
+            code, name, market, date, topix_stage, topix_ema5, topix_ema20, topix_ema40,
+            stock_stage, stock_ema5, stock_ema20, stock_ema40, rsi, rsi_delta,
+            macd, macd_signal, macd_histogram, recent_golden_cross, recent_dead_cross,
+            atr, closing_price, price_max_since_buy,
+            bb_plus_1sigma, bb_plus_2sigma, bb_minus_1sigma, bb_minus_2sigma,
+            volume, volume_avg_5d, volume_avg_20d,
+            obv, obv_pre_1, obv_pre_2, obv_pre_3, obv_ma_20,
+            latest_settlement_date, create_day
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    """
     for record in results:
-        cur.execute("""
-            INSERT INTO analysis_results (
-                code, name, market, date, topix_stage, topix_ema5, topix_ema20, topix_ema40,
-                stock_stage, stock_ema5, stock_ema20, stock_ema40, rsi, rsi_delta,
-                macd, macd_signal, macd_histogram, recent_golden_cross, recent_dead_cross,
-                atr, closing_price, price_max_since_buy,
-                bb_plus_1sigma, bb_plus_2sigma, bb_minus_1sigma, bb_minus_2sigma,
-                volume, volume_avg_5d, volume_avg_20d,
-                obv, obv_pre_1, obv_pre_2, obv_pre_3, obv_ma_20,
-                latest_settlement_date, create_day
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-        """, (
+        conn.execute(insert_sql, (
             record['code'], record['name'], record['market'], record['date'], record['topix_stage'],
             record['topix_ema5'], record['topix_ema20'], record['topix_ema40'],
             record['stock_stage'], record['stock_ema5'], record['stock_ema20'], record['stock_ema40'],
@@ -106,18 +92,44 @@ def insert_results_to_db(results):
             record['obv_ma_20'], record['latest_settlement_date'], record['create_day']
         ))
     conn.commit()
-    conn.close()
     print(f"✅ {len(results)} 件の分析結果をDBに格納しました。")
 
+# -------------------------
+# 株価取得関連
+# -------------------------
+def fetch_latest_price_volume(ticker):
+    """最新株価と出来高を取得"""
+    try:
+        df = yf.Ticker(ticker).history(period='5d')
+        df = df[df['Close'].notnull()]
+        if df.empty:
+            return None, None
+        latest_row = df.iloc[-1]
+        latest_date = latest_row.name.to_pydatetime().date()
+        today = datetime.now().date()
+        if latest_date > today:
+            return None, None
+        return float(latest_row['Close']), int(latest_row['Volume'])
+    except Exception as e:
+        print(f"{ticker}: 最新株価・出来高取得エラー: {e}")
+        return None, None
+
+# -------------------------
+# メイン処理
+# -------------------------
 def run_batch():
-    selected_stages = [1, 2, 3, 4, 5, 6]
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    create_analysis_table(conn)
+    clear_analysis_table(conn)
+
     loader = TickersLoader()
     tickers = loader.get_all_tickers()
     fetcher = StockDataFetcher()
     stage_analyzer = StageAnalyzer(short_ema_col='EMA_5', mid_ema_col='EMA_20', long_ema_col='EMA_40')
     results = []
 
-    # 仮でTOPIXデータを取得（ステージ・EMA計算）
+    # TOPIX取得
     topix_df = fetcher.fetch("^TOPX")
     topix_stage_analyzer = StageAnalyzer(short_ema_col='EMA_5', mid_ema_col='EMA_20', long_ema_col='EMA_40')
     latest_topix_row = topix_df.iloc[-1]
@@ -135,12 +147,13 @@ def run_batch():
             df = fetcher.fetch(ticker)
             if df is None or df.empty:
                 continue
+
             latest_row = df.iloc[-1]
             stock_stage_str = stage_analyzer.determine_stage(latest_row)
             stock_stage = int(stock_stage_str.replace("ステージ","")) if stock_stage_str.startswith("ステージ") else None
 
-            # 技術指標計算（RSI, MACD, ATR, Bollinger, OBVなど）
-            indicators = calculate_indicators(df)  # 戻り値は dict
+            # 技術指標計算
+            indicators = calculate_indicators(df)
 
             closing_price, volume = fetch_latest_price_volume(ticker)
             record = {
@@ -186,8 +199,8 @@ def run_batch():
             print(f"エラー: {ticker} - {name}: {e}")
             continue
 
-    # DBに格納
-    insert_results_to_db(results)
+    insert_results(conn, results)
+    conn.close()
 
 if __name__ == "__main__":
     run_batch()
