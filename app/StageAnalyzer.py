@@ -1,5 +1,3 @@
-# app/analyzer/StageAnalyzer.py
-
 import numpy as np
 
 class StageAnalyzer:
@@ -9,21 +7,20 @@ class StageAnalyzer:
         self.long = long_ema_col
 
     def determine_stage(self, df):
-        """
-        DataFrame全体を受け取り、最新行からステージを判定する
-        """
+        """最新行からステージを判定"""
         try:
-            short = df[self.short].iloc[-1]
-            mid = df[self.mid].iloc[-1]
-            long = df[self.long].iloc[-1]
+            # ✅ スカラー(float)として取得
+            short = float(df[self.short].iloc[-1])
+            mid = float(df[self.mid].iloc[-1])
+            long = float(df[self.long].iloc[-1])
         except Exception as e:
             return f"データ取得エラー: {e}"
 
-        # 欠損値チェック
+        # ✅ 欠損値チェック
         if np.isnan(short) or np.isnan(mid) or np.isnan(long):
             return "データ不足"
 
-        # ステージ判定ロジック
+        # ✅ ステージ判定ロジック（スカラー同士の比較に変更）
         if short > mid > long:
             return "ステージ1"
         elif mid > short > long:
@@ -40,9 +37,7 @@ class StageAnalyzer:
             return "判定不能"
 
     def analyze_all(self, ema_data_dict):
-        """
-        各銘柄のDataFrameをまとめて解析
-        """
+        """各銘柄のDataFrameをまとめて解析"""
         result = {}
         for ticker, df in ema_data_dict.items():
             if df.empty or len(df) < 1:
@@ -53,14 +48,17 @@ class StageAnalyzer:
         return result
 
 
-# テスト実行
+# テスト
 if __name__ == "__main__":
     import pandas as pd
+
     data = {
         'EMA_5': [105],
         'EMA_25': [100],
         'EMA_40': [95],
     }
+
     df = pd.DataFrame(data)
     analyzer = StageAnalyzer()
     print("判定されたステージ:", analyzer.determine_stage(df))
+
