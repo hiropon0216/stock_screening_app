@@ -58,8 +58,19 @@ def calculate_indicators(df: pd.DataFrame) -> dict:
     # ----- EMA5, EMA20 ゴールデンクロス/デッドクロス判定 -----
     ema5 = df['Close'].ewm(span=5, adjust=False).mean()
     ema20 = df['Close'].ewm(span=20, adjust=False).mean()
-    recent_cross = ema5.iloc[-2] < ema20.iloc[-2] and ema5.iloc[-1] > ema20.iloc[-1]
-    recent_dead_cross = ema5.iloc[-2] > ema20.iloc[-2] and ema5.iloc[-1] < ema20.iloc[-1]
+
+    if len(ema5) >= 2 and len(ema20) >= 2:
+        prev_ema5 = float(ema5.iloc[-2])
+        prev_ema20 = float(ema20.iloc[-2])
+        curr_ema5 = float(ema5.iloc[-1])
+        curr_ema20 = float(ema20.iloc[-1])
+
+        recent_cross = (prev_ema5 < prev_ema20) and (curr_ema5 > curr_ema20)
+        recent_dead_cross = (prev_ema5 > prev_ema20) and (curr_ema5 < curr_ema20)
+    else:
+        recent_cross = False
+        recent_dead_cross = False
+
     indicators['recent_golden_cross'] = recent_cross
     indicators['recent_dead_cross'] = recent_dead_cross
 
