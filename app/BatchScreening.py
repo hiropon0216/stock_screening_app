@@ -121,7 +121,7 @@ def run_batch():
             if df is None or df.empty:
                 continue
             latest_row = df.iloc[-1]
-            stock_stage_str = stage_analyzer.determine_stage(latest_row)
+            stock_stage_str = stage_analyzer.determine_stage(df)
             stock_stage = int(stock_stage_str.replace("ステージ","")) if stock_stage_str.startswith("ステージ") else None
 
             # 技術指標計算（RSI, MACD, ATR, Bollinger, OBVなど）
